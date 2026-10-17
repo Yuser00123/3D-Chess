@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Blade Chess 3D — Real 3D Chess with Sword Captures</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>⚔️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<div id="scene-container"></div>
+
+<!-- ======================= HUD ======================= -->
+<div id="hud" class="hidden">
+  <header id="topbar">
+    <div class="chip" id="chip-top">
+      <span class="avatar" id="av-top">♚</span>
+      <div class="chip-body">
+        <div class="pname" id="name-top">Opponent</div>
+        <div class="tray" id="tray-top"></div>
+      </div>
+      <span class="conn-dot hidden" id="conn-top" title="disconnected"></span>
+    </div>
+
+    <div id="status-pill">
+      <span id="turn-dot"></span>
+      <span id="status-text">Your move</span>
+    </div>
+
+    <div class="chip right" id="chip-bottom">
+      <div class="chip-body">
+        <div class="pname" id="name-bottom">You</div>
+        <div class="tray" id="tray-bottom"></div>
+      </div>
+      <span class="avatar" id="av-bottom">♔</span>
+    </div>
+  </header>
+
+  <aside id="movelist-panel">
+    <h3>&#9876; Moves</h3>
+    <ol id="movelist"></ol>
+  </aside>
+
+  <footer id="controls">
+    <button class="ctl" id="btn-flip" title="Flip camera">⇅<span>Flip</span></button>
+    <button class="ctl" id="btn-sound" title="Sound on/off">🔊<span>Sound</span></button>
+    <button class="ctl" id="btn-undo" title="Undo move">↩<span>Undo</span></button>
+    <button class="ctl" id="btn-resign" title="Resign">🏳<span>Resign</span></button>
+    <button class="ctl" id="btn-menu" title="Back to menu">⌂<span>Menu</span></button>
+  </footer>
+</div>
+
+<!-- ======================= MENU ======================= -->
+<div id="menu" class="overlay">
+  <div class="menu-card">
+    <div class="brand">
+      <div class="brand-icon">⚔️</div>
+      <h1>BLADE CHESS <span class="brand-3d">3D</span></h1>
+      <p class="tagline">Real 3D pieces · silky-smooth moves · sword-slash captures</p>
+    </div>
+
+    <!-- home -->
+    <div id="menu-home" class="menu-section">
+      <button class="mode-card" data-mode="bot">
+        <span class="mc-icon">🤖</span>
+        <span class="mc-text"><b>Play vs Bot</b><i>Battle the engine — 3 difficulty levels</i></span>
+        <span class="mc-arrow">→</span>
+      </button>
+      <button class="mode-card" data-mode="code">
+        <span class="mc-icon">🛡️</span>
+        <span class="mc-text"><b>Play with a Code</b><i>Create a room, share the code, duel a friend</i></span>
+        <span class="mc-arrow">→</span>
+      </button>
+      <button class="mode-card" data-mode="local">
+        <span class="mc-icon">👥</span>
+        <span class="mc-text"><b>Local 2 Players</b><i>Pass &amp; play on one screen</i></span>
+        <span class="mc-arrow">→</span>
+      </button>
+      <button id="rejoin-chip" class="rejoin hidden"></button>
+      <p class="hint">Drag to orbit · scroll to zoom · click a piece to move</p>
+    </div>
+
+    <!-- bot setup -->
+    <div id="menu-bot" class="menu-section hidden">
+      <h2>Play vs Bot</h2>
+      <label class="field-label">Your side</label>
+      <div class="seg" id="seg-side">
+        <button data-v="w">♔ White</button>
+        <button data-v="random">🎲 Random</button>
+        <button data-v="b">♚ Black</button>
+      </div>
+      <label class="field-label">Bot difficulty</label>
+      <div class="seg" id="seg-level">
+        <button data-v="1">🛡 Squire<br><i>easy</i></button>
+        <button data-v="2">⚔ Knight<br><i>medium</i></button>
+        <button data-v="3">👑 King<br><i>hard</i></button>
+      </div>
+      <div class="btn-row">
+        <button class="btn" data-back>← Back</button>
+        <button class="btn btn-primary" id="btn-start-bot">Start Battle ⚔</button>
+      </div>
+    </div>
+
+    <!-- code setup -->
+    <div id="menu-code" class="menu-section hidden">
+      <h2>Play with a Code</h2>
+      <button class="big-action" id="btn-create-room">
+        <b>⚔ Create a Room</b>
+        <i>You become White — share the code with your friend</i>
+      </button>
+      <div class="divider"><span>or join a room</span></div>
+      <div class="join-row">
+        <input id="input-code" maxlength="5" placeholder="CODE" autocomplete="off" spellcheck="false">
+        <button class="btn btn-primary" id="btn-join-room">Join</button>
+      </div>
+      <p id="join-error" class="error hidden"></p>
+      <div class="btn-row"><button class="btn" data-back>← Back</button></div>
+    </div>
+
+    <!-- lobby -->
+    <div id="menu-lobby" class="menu-section hidden">
+      <h2>Room Created</h2>
+      <p class="lobby-sub">Share this code with your friend:</p>
+      <div class="code-display" id="code-display">— — — — —</div>
+      <div class="btn-row center">
+        <button class="btn" id="btn-copy-code">⧉ Copy Code</button>
+        <button class="btn" id="btn-copy-link">🔗 Copy Invite Link</button>
+      </div>
+      <div class="waiting"><span class="dots"><i></i><i></i><i></i></span> Waiting for your opponent to join…</div>
+      <div class="btn-row"><button class="btn" id="btn-cancel-room">← Cancel</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= PROMOTION MODAL ======================= -->
+<div id="promo-modal" class="overlay hidden">
+  <div class="modal-card">
+    <h2>Promote your pawn</h2>
+    <div id="promo-choices">
+      <button data-p="q"><span class="pg">♕</span>Queen</button>
+      <button data-p="r"><span class="pg">♖</span>Rook</button>
+      <button data-p="b"><span class="pg">♗</span>Bishop</button>
+      <button data-p="n"><span class="pg">♘</span>Knight</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= RESULT MODAL ======================= -->
+<div id="result-modal" class="overlay hidden">
+  <div class="modal-card result">
+    <div class="result-icon" id="result-icon">⚔️</div>
+    <h2 id="result-title">Checkmate</h2>
+    <p id="result-sub">White wins</p>
+    <div class="btn-row center" id="result-buttons">
+      <button class="btn btn-primary" id="btn-result-rematch">⚔ Rematch</button>
+      <button class="btn" id="btn-result-menu">⌂ Menu</button>
+    </div>
+    <p class="rematch-waiting hidden" id="rematch-waiting">Waiting for opponent to accept…</p>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script src="/vendor/three.min.js"></script>
+<script src="/vendor/chess.min.js"></script>
+<script src="/js/audio.js"></script>
+<script src="/js/engine.js"></script>
+<script src="/js/scene.js"></script>
+<script src="/js/game.js"></script>
+</body>
+</html>
