@@ -227,6 +227,7 @@
       if (oppDisconnected && !gameOver) txt = 'Opponent disconnected…';
     }
     else txt = (chess.turn() === 'w' ? 'White' : 'Black') + ' to move';
+    if (premove && mySeat && !gameOver && !override && chess.turn() !== mySeat) txt += ' — premove ready ⚡';
     if (!override && !gameOver && chess.in_check()) txt += ' — CHECK!';
     el.textContent = txt;
     pill.classList.toggle('check', !gameOver && chess.in_check());
@@ -301,9 +302,69 @@
     return chess.turn() === mySeat;
   }
 
+  /* ---------------- pre-moves ----------------
+     While it's the opponent's turn (bot thinking / online opponent),
+     you can queue your next move: tap your piece, tap the destination.
+     It plays automatically the moment it becomes your turn — if still legal. */
+  let premove = null;      // committed {from,to}
+  let preSel = null;       // piece picked, waiting for destination
+  let premoveTipShown = false;
+
+  function clearPremoveState() {
+    premove = null; preSel = null;
+    C3D.clearPremove();
+    updateStatus();
+  }
+  function handlePremoveTap(x, y) {
+    const sq = C3D.pick(x, y);
+    if (!sq) { clearPremoveState(); return; }
+    if (premove && sq === premove.from) { clearPremoveState(); return; } // tap the piece to cancel
+    const pc = chess.get(sq);
+    if (pc && pc.color === mySeat) {
+      if (preSel === sq) { clearPremoveState(); return; } // tap the picked piece again to cancel
+      premove = null;                       // picking a different piece replaces a committed pre-move
+      preSel = sq;
+      C3D.showPremoveSel(sq);
+      SFX.tick();
+    } else if (preSel) {
+      premove = { from: preSel, to: sq };   // commit the pre-move
+      preSel = null;
+      C3D.showPremove(premove.from, premove.to);
+      SFX.tick();
+      if (!premoveTipShown) {
+        premoveTipShown = true;
+        toast('Premove set ⚡ — plays automatically when it\u2019s your turn');
+      }
+      updateStatus();
+    } else {
+      clearPremoveState();
+    }
+  }
+  /* called whenever a move finishes: play or drop the queued pre-move */
+  function maybeAutoPremove() {
+    if (!premove && !preSel) return;
+    if (!mySeat || mode === 'local' || gameOver || inLobby) { clearPremoveState(); return; }
+    if (chess.turn() !== mySeat) return;      // still the opponent's turn — keep the premove queued
+    if (busy || pendingMove) return;          // retried when the queued move finishes
+    if (!premove) {                           // only a stale piece-selection — clear it
+      preSel = null; C3D.clearPremove(); updateStatus(); return;
+    }
+    const { from, to } = premove;
+    premove = null; preSel = null;
+    C3D.clearPremove();
+    updateStatus();
+    const mv = chess.moves({ square: from, verbose: true }).find(m => m.to === to);
+    if (mv) playerMove({ from, to, promotion: mv.promotion ? 'q' : undefined });
+    // else: pre-move no longer legal — dropped silently (standard behaviour)
+  }
+
+
   C3D.onTap((x, y) => {
     SFX.unlock();
-    if (!mode || inLobby || gameOver || busy || !controlsTurn()) return;
+    if (!mode || inLobby || gameOver) return;
+    // not my turn in bot/online games → pre-move input
+    if (mySeat && mode !== 'local' && !controlsTurn()) { handlePremoveTap(x, y); return; }
+    if (busy || !controlsTurn()) return;
     const sq = C3D.pick(x, y);
     if (!sq) { deselect(); return; }
 
@@ -416,6 +477,7 @@
     C3D.showLastMove(v.from, v.to);
     busy = false;
     afterMove(v);
+    maybeAutoPremove(); // queued pre-move fires as soon as it's the player's turn
     if (pendingMove) { const m = pendingMove; pendingMove = null; performMove(m); }
   }
 
@@ -446,6 +508,7 @@
     if (gameOver) return;
     gameOver = true;
     deselect();
+    clearPremoveState();
     C3D.showCheck(null);
     updateStatus();
 
@@ -498,6 +561,8 @@
     lastFrom = lastTo = null;
     pendingMove = null;
     selected = null; targets = [];
+    premove = null; preSel = null;
+    C3D.clearPremove();
     busy = false;
     oppDisconnected = false;
     rematchWanted = false;
@@ -546,6 +611,7 @@
     try { localStorage.removeItem('bc3d_room'); } catch (e) { /* ignore */ }
     mode = null; gameOver = false; inLobby = false;
     deselect();
+    clearPremoveState();
     chess.reset();
     C3D.buildFromFen(chess.fen());
     C3D.clearMoveHighlights();
@@ -866,6 +932,7 @@
       if (!sanList.length) return;
       chess.undo(); sanList.pop();
     }
+    clearPremoveState();
     rebuildBoard();
   });
   $('btn-resign').addEventListener('click', async () => {
@@ -917,6 +984,7 @@
   // read-only debug hook (used by automated tests; handy for support too)
   window.BC3D_DEBUG = () => ({
     mode, mySeat, botSeat, botLevel, engine: EngineClient.kind(), busy, inLobby, gameOver,
+    premove: premove ? premove.from + '-' + premove.to : null, preSel,
     fen: chess.fen(), turn: chess.turn(), inCheck: chess.in_check(),
     sanList, selected, targets: targets.length,
     room: room ? room.code : null,

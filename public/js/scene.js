@@ -482,7 +482,7 @@ const C3D = (() => {
   }
 
   /* ============================== highlights ============================== */
-  const hl = { sel: null, dots: [], rings: [], lastA: null, lastB: null, check: null };
+  const hl = { sel: null, dots: [], rings: [], lastA: null, lastB: null, check: null, preA: null, preB: null };
 
   function initHighlights() {
     const mk = (geo, color, opacity, blending) => {
@@ -503,7 +503,10 @@ const C3D = (() => {
       hl.rings.push(mk(new THREE.RingGeometry(0.30, 0.41, 40), 0xff5340, 0.85, THREE.AdditiveBlending));
     hl.lastA = mk(new THREE.PlaneGeometry(0.94, 0.94), 0x4f8cff, 0.20);
     hl.lastB = mk(new THREE.PlaneGeometry(0.94, 0.94), 0x4f8cff, 0.20);
-    hl.dots.concat(hl.rings, [hl.sel, hl.check, hl.lastA, hl.lastB]).forEach(m => m.renderOrder = 2);
+    // pre-move markers (electric yellow, drawn above the other highlights)
+    hl.preA = mk(new THREE.RingGeometry(0.36, 0.45, 40), 0xffe14d, 0.95, THREE.AdditiveBlending);
+    hl.preB = mk(new THREE.PlaneGeometry(0.94, 0.94), 0xffd91f, 0.30);
+    hl.dots.concat(hl.rings, [hl.sel, hl.check, hl.lastA, hl.lastB, hl.preA, hl.preB]).forEach(m => m.renderOrder = 2);
   }
 
   function placeFlat(mesh, square, y) {
@@ -539,6 +542,23 @@ const C3D = (() => {
     pickExempt = null;
     [hl.sel, hl.check, hl.lastA, hl.lastB].forEach(m => m.visible = false);
     hl.dots.concat(hl.rings).forEach(m => m.visible = false);
+  }
+
+  /* pre-move: queue a move while it's the opponent's turn.
+     These markers survive clearMoveHighlights (which runs on every move). */
+  function showPremoveSel(square) { // a piece has been picked, waiting for its destination
+    hl.preB.visible = false;
+    placeFlat(hl.preA, square, 0.027);
+    pickExempt = pieceAt(square);   // clicks pass through it to the square behind
+  }
+  function showPremove(from, to) {  // the committed pre-move
+    placeFlat(hl.preA, from, 0.027);
+    placeFlat(hl.preB, to, 0.028);
+    pickExempt = null;
+  }
+  function clearPremove() {
+    hl.preA.visible = false;
+    hl.preB.visible = false;
   }
 
   /* ============================== particles & debris ============================== */
@@ -1178,6 +1198,7 @@ const C3D = (() => {
     init, worldPos, pick,
     buildFromFen, spawnPiece, pieceAt, clearPieces,
     showSelection, showMoves, showLastMove, showCheck, clearMoveHighlights,
+    showPremoveSel, showPremove, clearPremove,
     animateVerboseMove,
     setView, flipView,
     getCamera: () => camera,

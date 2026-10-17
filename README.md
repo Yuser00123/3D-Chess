@@ -7,6 +7,7 @@ A smooth 3D chess website with **real sculpted pieces** (King, Queen, Rook, Bish
 ## Play
 
 - **🤖 Play vs Bot** — three **Stockfish** difficulty levels: *Squire* (easy, skill 1), *Knight* (medium, skill 8), *King* (hard, skill 18). Pick your side.
+- **⚡ Pre-moves** — while the bot or your online opponent is thinking, tap your piece and its destination: the move is queued (yellow markers) and plays automatically the instant it's your turn — if it's still legal. Tap the piece again to cancel.
 - **🛡️ Play with a Code** — create a room, share the 5-letter code (or invite link) with a friend, and duel online. Includes rematch (colors swap), resign, reconnect and refresh recovery.
 - **👥 Local 2 Players** — pass & play on one screen.
 
@@ -21,7 +22,7 @@ A smooth 3D chess website with **real sculpted pieces** (King, Queen, Rook, Bish
 | Undo (bot / local) | ↩ button |
 | Resign | 🏳 button |
 
-Extras: move hints (dots = moves, red rings = captures), last-move highlight, pulsing check warning, captured-piece trays, move history in algebraic notation, promotion picker, synthesized sound effects (toggle with 🔊).
+Extras: pre-moves, move hints (dots = moves, red rings = captures), last-move highlight, pulsing check warning, captured-piece trays, move history in algebraic notation, promotion picker, synthesized sound effects (toggle with 🔊).
 
 Add `?fx=low` to the URL for a lighter mode on weak devices (no shadows/dust). Add `?join=CODE` to jump straight into a room.
 
