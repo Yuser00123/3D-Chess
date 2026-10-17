@@ -73,7 +73,8 @@
     for (let r = 0; r < 8; r++)
       for (let f = 0; f < 8; f++) {
         const s = b[r][f];
-        if (s && s.type === 'k' && s.color === color) return s.square;
+        // NOTE: this chess.js build's board() cells have no .square field — build it from indices
+        if (s && s.type === 'k' && s.color === color) return 'abcdefgh'[f] + (8 - r);
       }
     return null;
   }
@@ -509,7 +510,10 @@
     gameOver = true;
     deselect();
     clearPremoveState();
-    C3D.showCheck(null);
+    // keep the final position readable: a pulsing ring on the mated king
+    if (type === 'checkmate') C3D.showCheck(kingSquare(chess.turn()));
+    else C3D.showCheck(null);
+    $('btn-back-result').classList.add('hidden');
     updateStatus();
 
     const icon = $('result-icon'), title = $('result-title'), sub = $('result-sub');
@@ -592,6 +596,7 @@
     hideAllMenuSections();
     $('menu').classList.add('hidden');
     $('result-modal').classList.add('hidden');
+    $('btn-back-result').classList.add('hidden');
     $('hud').classList.remove('hidden');
 
     const viewSeat = (m === 'local') ? 'w' : (mySeat || 'w');
@@ -618,6 +623,7 @@
     C3D.showCheck(null);
     $('hud').classList.add('hidden');
     $('result-modal').classList.add('hidden');
+    $('btn-back-result').classList.add('hidden');
     $('promo-modal').classList.add('hidden');
     showMenuSection('menu-home');
     $('menu').classList.remove('hidden');
@@ -735,6 +741,7 @@
     if (state.status === 'active' || state.status === 'waiting') {
       gameOver = false;
       $('result-modal').classList.add('hidden');
+      $('btn-back-result').classList.add('hidden');
     }
     const viewSeat = mySeat || 'w';
     C3D.setView(viewSeat, false);
@@ -962,9 +969,22 @@
   });
   $('btn-result-menu').addEventListener('click', () => resetToMenu());
 
+  /* inspect the final position (where the checkmate happened) */
+  $('btn-result-view').addEventListener('click', () => {
+    if (!gameOver) return;
+    $('result-modal').classList.add('hidden');
+    $('btn-back-result').classList.remove('hidden');
+    toast('Final position — drag to orbit, scroll to zoom; the red ring marks the fallen king');
+  });
+  $('btn-back-result').addEventListener('click', () => {
+    $('result-modal').classList.remove('hidden');
+    $('btn-back-result').classList.add('hidden');
+  });
+
   window.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
       if (!$('promo-modal').classList.contains('hidden')) { if (promoResolve) promoResolve(null); }
+      else if (gameOver && $('result-modal').classList.contains('hidden') && !$('btn-back-result').classList.contains('hidden')) $('btn-back-result').click();
       else deselect();
     }
   });

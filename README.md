@@ -22,7 +22,7 @@ A smooth 3D chess website with **real sculpted pieces** (King, Queen, Rook, Bish
 | Undo (bot / local) | ↩ button |
 | Resign | 🏳 button |
 
-Extras: pre-moves, move hints (dots = moves, red rings = captures), last-move highlight, pulsing check warning, captured-piece trays, move history in algebraic notation, promotion picker, synthesized sound effects (toggle with 🔊).
+Extras: pre-moves, move hints (dots = moves, red rings = captures), last-move highlight, a pulsing red ring on the king in check, captured-piece trays, move history in algebraic notation, promotion picker, synthesized sound effects (toggle with 🔊). When the game ends, the result card offers **Rematch**, **View Board** (orbit and inspect the final position — the fallen king is marked by the red ring), and **Menu**.
 
 Add `?fx=low` to the URL for a lighter mode on weak devices (no shadows/dust). Add `?join=CODE` to jump straight into a room.
 
