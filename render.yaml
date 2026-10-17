@@ -1,0 +1,10 @@
+# Render Blueprint — deploy Blade Chess 3D in one click
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: blade-chess-3d
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /

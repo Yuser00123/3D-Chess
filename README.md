@@ -56,8 +56,32 @@ public/
     scene.js            Three.js scene, pieces, animations, sword duels
     game.js             game logic, modes, HUD, online sync
     engine.js           fallback bot engine (negamax + quiescence)
-    stockfish.js        Stockfish (asm.js) — powers the 3 bot levels
     audio.js            WebAudio sound effects
-  vendor/               three.min.js, chess.min.js
+  vendor/               three.min.js, chess.min.js, stockfish.js
 screenshots/            captured in-game shots
+```
+
+## Deploying
+
+### Render (recommended — free tier works)
+
+The repo ships with a [`render.yaml`](render.yaml) blueprint, so deployment is nearly one click:
+
+1. Push this repo to your GitHub.
+2. Go to [render.com](https://render.com) → **New → Blueprint**, and pick the repo.
+3. It creates a free **Web Service** (`npm start` → `node server.js`, health check on `/`). No build step, no environment variables needed.
+4. Your app goes live at `https://<your-service>.onrender.com` — share the link, and room codes work anywhere.
+
+Manual alternative: **New → Web Service** → connect the repo → Runtime **Node** → Build Command `npm install` → Start Command `npm start`.
+
+Notes:
+
+- Choose **Web Service**, *not* Static Site — the room-code multiplayer needs the server API.
+- Free-tier services spin down after ~15 minutes without traffic; the next request then takes ~30–60 s to wake. Rooms live in memory, so a spin-down or redeploy clears active rooms — normal play keeps the service awake.
+- The server reads `process.env.PORT` (local fallback `3000`), so it also runs as-is on Railway, Fly.io, Heroku-style dynos, or any container.
+
+### Anywhere else
+
+```bash
+npm start        # or: node server.js  → http://localhost:3000
 ```

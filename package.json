@@ -1,0 +1,13 @@
+{
+  "name": "blade-chess-3d",
+  "version": "1.1.0",
+  "description": "Blade Chess 3D — a smooth 3D chess website with Harry-Potter-style sword-duel captures. Play vs Stockfish (3 levels) or with a friend via room code.",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
