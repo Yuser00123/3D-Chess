@@ -90,33 +90,113 @@
     return lost;
   }
 
-  /* ---------------- engine (bot) ---------------- */
+  /* ---------------- engine (bot): Stockfish, with fallback to the built-in engine ---------------- */
   const EngineClient = (() => {
-    let worker = null, fallback = false, pending = null;
-    function ensure() {
-      if (worker || fallback) return;
-      try {
-        const code = `importScripts(${JSON.stringify(location.origin + '/vendor/chess.min.js')},${JSON.stringify(location.origin + '/js/engine.js')});`;
-        const url = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
-        worker = new Worker(url);
-        worker.onmessage = e => { const cb = pending; pending = null; if (cb) cb(e.data || {}); };
-        worker.onerror = () => { worker = null; fallback = true; };
-      } catch (e) { fallback = true; }
-    }
-    function request(fen, level, cb) {
-      ensure();
-      if (!worker) {
-        setTimeout(() => {
-          let mv = null;
-          try { mv = window.ChessEngine.bestMove(fen, level); } catch (e) { /* noop */ }
-          cb({ move: mv });
-        }, 30);
-        return;
+    /* Stockfish levels — Skill Level 0..20 is Stockfish's own handicap dial */
+    const SF_LEVELS = {
+      1: { skill: 1,  depth: 4,  movetime: 260 },
+      2: { skill: 8,  depth: 10, movetime: 700 },
+      3: { skill: 18, depth: 15, movetime: 1500 }
+    };
+
+    /* the original minimax engine — used only if Stockfish fails to load */
+    const legacy = (() => {
+      let worker = null, dead = false, pending = null;
+      function ensure() {
+        if (worker || dead) return;
+        try {
+          const code = `importScripts(${JSON.stringify(location.origin + '/vendor/chess.min.js')},${JSON.stringify(location.origin + '/js/engine.js')});`;
+          const url = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
+          worker = new Worker(url);
+          worker.onmessage = e => { const cb = pending; pending = null; if (cb) cb(e.data || {}); };
+          worker.onerror = () => { worker = null; dead = true; };
+        } catch (e) { dead = true; }
       }
-      pending = cb; // single in-flight request (stale results are discarded by fen check)
-      worker.postMessage({ fen, level, id: 1 });
+      function request(fen, level, cb) {
+        ensure();
+        if (!worker) {
+          setTimeout(() => {
+            let mv = null;
+            try { mv = window.ChessEngine.bestMove(fen, level); } catch (e) { /* noop */ }
+            cb({ move: mv });
+          }, 30);
+          return;
+        }
+        pending = cb;
+        worker.postMessage({ fen, level, id: 1 });
+      }
+      return { request };
+    })();
+
+    let sf = null;                 // the Stockfish worker
+    let usingStockfish = null;     // null = unknown yet, true/false after boot
+    let broken = false;
+    let onBest = null;             // waiter for the current 'go'
+    let readyResolve = null;
+    const ready = new Promise(r => readyResolve = r);
+    let chain = ready;             // serialize UCI conversations
+
+    function boot() {
+      if (sf || broken) return;
+      try {
+        sf = new Worker('/vendor/stockfish.js');
+      } catch (e) { broken = true; usingStockfish = false; readyResolve(); return; }
+      const giveUp = setTimeout(() => {
+        if (usingStockfish === null) { broken = true; usingStockfish = false; readyResolve(); if (onBest) onBest(''); }
+      }, 12000);
+      sf.onmessage = e => {
+        const s = typeof e.data === 'string' ? e.data : (e.data && e.data.line) || '';
+        if (s.includes('uciok') && usingStockfish === null) {
+          usingStockfish = true;
+          clearTimeout(giveUp);
+          readyResolve();
+        }
+        if (s.startsWith('bestmove')) {
+          const cb = onBest; onBest = null;
+          if (cb) cb(s.split(' ')[1] || '');
+        }
+      };
+      sf.onerror = () => {
+        broken = true;
+        if (usingStockfish === null) { usingStockfish = false; readyResolve(); }
+        if (onBest) onBest('');
+      };
+      sf.postMessage('uci');
     }
-    return { request };
+
+    /* one 'go' — resolves with a uci move like "e2e4" or "" on failure */
+    function askBest(fen, level) {
+      const lv = SF_LEVELS[level] || SF_LEVELS[2];
+      return new Promise(resolve => {
+        onBest = uci => {
+          clearTimeout(hardStop); clearTimeout(giveUp);
+          resolve(uci);
+        };
+        const hardStop = setTimeout(() => { if (onBest) sf.postMessage('stop'); }, lv.movetime + 6000);
+        const giveUp = setTimeout(() => { if (onBest) { onBest = null; resolve(''); } }, lv.movetime + 10000);
+        sf.postMessage(`setoption name Skill Level value ${lv.skill}`);
+        sf.postMessage(`position fen ${fen}`);
+        sf.postMessage(`go depth ${lv.depth} movetime ${lv.movetime}`);
+      });
+    }
+
+    function request(fen, level, cb) {
+      boot();
+      chain = chain.then(async () => {
+        if (broken || !usingStockfish) { legacy.request(fen, level, cb); return; }
+        let uci = '';
+        try { uci = await askBest(fen, level); } catch (e) { uci = ''; }
+        if (!uci || uci === '(none)') {
+          // engine stalled — fall back to the built-in engine for this move and after
+          broken = true; usingStockfish = false;
+          try { sf.terminate(); } catch (e) { /* noop */ }
+          legacy.request(fen, level, cb);
+          return;
+        }
+        cb({ move: { from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: /[nbrq]/.test(uci[4] || '') ? uci[4] : undefined } });
+      }).catch(() => legacy.request(fen, level, cb));
+    }
+    return { request, kind: () => (usingStockfish === true ? 'stockfish' : usingStockfish === false ? 'legacy' : 'booting') };
   })();
 
   function scheduleBot() {
@@ -836,8 +916,8 @@
   /* ---------------- boot ---------------- */
   // read-only debug hook (used by automated tests; handy for support too)
   window.BC3D_DEBUG = () => ({
-    mode, mySeat, botSeat, busy, inLobby, gameOver,
-    turn: chess.turn(), inCheck: chess.in_check(),
+    mode, mySeat, botSeat, botLevel, engine: EngineClient.kind(), busy, inLobby, gameOver,
+    fen: chess.fen(), turn: chess.turn(), inCheck: chess.in_check(),
     sanList, selected, targets: targets.length,
     room: room ? room.code : null,
     lastVersion, gameId, oppDisconnected, pendingMove: !!pendingMove

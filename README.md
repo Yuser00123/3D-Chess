@@ -6,7 +6,7 @@ A smooth 3D chess website with **real sculpted pieces** (King, Queen, Rook, Bish
 
 ## Play
 
-- **🤖 Play vs Bot** — three difficulty levels: *Squire* (easy), *Knight* (medium), *King* (hard). Pick your side.
+- **🤖 Play vs Bot** — three **Stockfish** difficulty levels: *Squire* (easy, skill 1), *Knight* (medium, skill 8), *King* (hard, skill 18). Pick your side.
 - **🛡️ Play with a Code** — create a room, share the 5-letter code (or invite link) with a friend, and duel online. Includes rematch (colors swap), resign, reconnect and refresh recovery.
 - **👥 Local 2 Players** — pass & play on one screen.
 
@@ -41,7 +41,7 @@ To play a code game with a friend, keep the server reachable and share your URL 
 - **Three.js (r128)** — procedural pieces: lathe-turned bodies, extruded knight heads, gold crown/cross details; ACES tone mapping, soft shadows, fog, dust motes.
 - **Sword-duel captures** — the attacker closes in and draws its sword; the defender raises its own in guard. The blades **clash** (sparks, flash, camera shake), the defender's sword is **knocked flying**, and the attacker's blade sweeps through: the victim is duplicated and split with per-material **clipping planes**, the top half tumbling away with gravity while the bottom tips over.
 - **chess.js** — full rule correctness (castling, en passant, promotion, threefold repetition, 50-move, stalemate…), on both client and server.
-- **Bot engine** — negamax with alpha-beta, quiescence search and piece-square tables, running in a Web Worker so the UI never stutters.
+- **Bot engine** — real **Stockfish** (single-file asm.js build) running in a Web Worker, one skill/depth/time profile per difficulty level; the UI never stutters. If the Stockfish worker can't load, the game silently falls back to a built-in negamax engine with quiescence search.
 - **Server** — zero-dependency Node `http` server: static files + room-code multiplayer API with server-side move validation, heartbeats, rematch and idle-room cleanup.
 - **Sound** — all effects synthesized live with WebAudio (no audio files).
 
@@ -55,7 +55,8 @@ public/
   js/
     scene.js            Three.js scene, pieces, animations, sword duels
     game.js             game logic, modes, HUD, online sync
-    engine.js           bot (negamax + quiescence), worker-ready
+    engine.js           fallback bot engine (negamax + quiescence)
+    stockfish.js        Stockfish (asm.js) — powers the 3 bot levels
     audio.js            WebAudio sound effects
   vendor/               three.min.js, chess.min.js
 screenshots/            captured in-game shots
