@@ -264,6 +264,19 @@ const server = http.createServer(async (req, res) => {
   try {
     const u = new URL(req.url, 'http://localhost');
     const pathname = decodeURIComponent(u.pathname);
+    if (pathname === '/health') {
+      // lightweight liveness probe — for uptime monitors and keep-awake pings
+      if (req.method === 'GET' || req.method === 'HEAD') {
+        return json(res, 200, {
+          ok: true,
+          name: 'blade-chess-3d',
+          uptime: Math.round(process.uptime()),
+          rooms: rooms.size,
+          ts: new Date().toISOString()
+        });
+      }
+      return json(res, 405, { ok: false, error: 'method not allowed' });
+    }
     if (pathname.startsWith('/api/')) {
       await handleApi(req, res, pathname, Object.fromEntries(u.searchParams));
     } else {

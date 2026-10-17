@@ -77,7 +77,8 @@ Manual alternative: **New → Web Service** → connect the repo → Runtime **N
 Notes:
 
 - Choose **Web Service**, *not* Static Site — the room-code multiplayer needs the server API.
-- Free-tier services spin down after ~15 minutes without traffic; the next request then takes ~30–60 s to wake. Rooms live in memory, so a spin-down or redeploy clears active rooms — normal play keeps the service awake.
+- Free-tier services spin down after ~15 minutes without traffic; the next request then takes ~30–60 s to wake. Rooms live in memory, so a spin-down or redeploy clears active rooms — normal play generates polling traffic and keeps the service awake.
+- **Keep-awake ping:** a `GET /health` endpoint returns `{ok:true, uptime, rooms, ts}` — point an uptime monitor at it to prevent spin-down. On [cronjob.org](https://cronjob.org) (free), create a job with URL `https://<your-service>.onrender.com/health` running **every 10 minutes** (safe margin under the 15-min sleep window), execution time 5 min, and it will never sleep.
 - The server reads `process.env.PORT` (local fallback `3000`), so it also runs as-is on Railway, Fly.io, Heroku-style dynos, or any container.
 
 ### Anywhere else
